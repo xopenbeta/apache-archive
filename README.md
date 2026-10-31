@@ -25,7 +25,7 @@ git push origin v202610312330
 | 平台 | 架构 | Runner |
 |------|------|--------|
 | macOS | arm64 (Apple Silicon) | `macos-15` |
-| macOS | x86_64 (Intel) | `macos-15-intel` |
+| macOS | x86_64 (Intel) | `macos-14`（Rosetta + `-arch x86_64`） |
 | Linux | x86_64 | `ubuntu-22.04` |
 | Linux | arm64 | `ubuntu-22.04-arm` |
 | Windows | x86_64 | `windows-2022` + MSVC 2022 |
@@ -33,6 +33,7 @@ git push origin v202610312330
 说明：
 
 - macOS 产物最低支持 macOS 12.0。
+- macOS x86_64 在 Apple Silicon runner 上安装 Rosetta，并用 `-arch x86_64` 交叉编译；所有依赖都从源码构建，不需要 x86_64 Homebrew。
 - Linux 产物在 Ubuntu 22.04 上构建，要求 glibc 2.35 或更高版本。
 - Windows 只提供 x86_64：httpd 的官方 Windows 构建仅支持 MSVC，没有可用的 arm64 构建路径。
 

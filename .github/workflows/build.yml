@@ -33,7 +33,7 @@ jobs:
             runner: macos-15
           - platform: macos
             arch: x86_64
-            runner: macos-15-intel
+            runner: macos-14
           - platform: linux
             arch: x86_64
             runner: ubuntu-22.04
