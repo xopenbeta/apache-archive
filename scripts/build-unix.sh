@@ -107,7 +107,9 @@ configure_platform() {
         CFLAGS="-O2 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET} -arch ${ARCH}"
         LDFLAGS="-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET} -arch ${ARCH}"
         OPENSSL_TARGET="darwin64-${ARCH}-cc"
-        OPENSSL_EXTRA_FLAGS="-arch ${ARCH} -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}"
+        # The darwin64 target already supplies -arch; passing it separately
+        # makes Configure treat the arch name as a second target.
+        OPENSSL_EXTRA_FLAGS="-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}"
         # arm64 binaries are ad-hoc signed by the linker; stripping would
         # invalidate that signature.
         STRIP_CMD=""
