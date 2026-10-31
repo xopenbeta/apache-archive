@@ -168,8 +168,9 @@ build_openssl() {
         # shellcheck disable=SC2086
         perl ./Configure "$OPENSSL_TARGET" \
             --prefix="$DEPS" \
+            --libdir="$DEPS/lib" \
             --openssldir=/etc/ssl \
-            no-shared no-tests no-apps \
+            no-shared no-tests \
             $OPENSSL_EXTRA_FLAGS
         make -j"$JOBS"
         make install_sw

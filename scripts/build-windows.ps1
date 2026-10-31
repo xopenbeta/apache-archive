@@ -171,7 +171,7 @@ function Install-Dependencies {
         $opensslPrefix = $Deps.Replace("\", "/")
         Invoke-CommandLine "perl" @(
             "Configure", "VC-WIN64A",
-            "no-tests", "no-apps", "no-asm",
+            "no-tests", "no-asm",
             "--prefix=$opensslPrefix", "--openssldir=C:/OpenSSL"
         ) "configure OpenSSL"
         Invoke-CommandLine "nmake" @() "build OpenSSL"
