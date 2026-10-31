@@ -25,7 +25,7 @@ git push origin v202610312330
 | 平台 | 架构 | Runner |
 |------|------|--------|
 | macOS | arm64 (Apple Silicon) | `macos-15` |
-| macOS | x86_64 (Intel) | `macos-14`（Rosetta + `-arch x86_64`） |
+| macOS | x86_64 (Intel) | `macos-15`（Rosetta + `-arch x86_64`） |
 | Linux | x86_64 | `ubuntu-22.04` |
 | Linux | arm64 | `ubuntu-22.04-arm` |
 | Windows | x86_64 | `windows-2022` + MSVC 2022 |
