@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 #
 # Build a relocatable Apache httpd package for Windows x86_64.
 #
@@ -34,6 +34,17 @@ $Stage = Join-Path $Root "stage"
 $InstallDir = "httpd-$HttpdVersion-windows-x86_64"
 $StageRoot = Join-Path $Stage $InstallDir
 $Zip = Join-Path $Root "$InstallDir.zip"
+
+# CMake treats backslashes in -D values as escapes; always pass forward slashes.
+$DepsFwd = $Deps.Replace("\", "/")
+$StageFwd = $StageRoot.Replace("\", "/")
+
+# Prefer the Windows bsdtar; an MSYS tar earlier in PATH cannot handle
+# drive-letter paths.
+$TarExe = Join-Path $env:SystemRoot "System32\tar.exe"
+if (-not (Test-Path $TarExe)) {
+    $TarExe = "tar.exe"
+}
 
 function Write-Step([string]$Message) {
     Write-Host ""
@@ -85,7 +96,7 @@ function Expand-Source {
     $dir = Join-Path $Work $DirectoryName
     if (-not (Test-Path $dir)) {
         Write-Step "extract $DirectoryName"
-        Invoke-CommandLine "tar.exe" @("-xf", $Archive, "-C", $Work) "extract $Archive"
+        Invoke-CommandLine $TarExe @("-xf", $Archive, "-C", $Work) "extract $Archive"
     }
     return $dir
 }
@@ -97,6 +108,8 @@ function Build-CMake {
         [string[]]$Options,
         [string]$What
     )
+    $Source = $Source.Replace("\", "/")
+    $BuildDir = $BuildDir.Replace("\", "/")
     if (Test-Path $BuildDir) {
         Remove-Item -Recurse -Force $BuildDir
     }
@@ -117,12 +130,12 @@ function Get-ExpatSource {
 }
 
 function Install-Dependencies {
-    $vcpkgHint = "-DCMAKE_PREFIX_PATH=$Deps"
+    $vcpkgHint = "-DCMAKE_PREFIX_PATH=$DepsFwd"
 
     # zlib ---------------------------------------------------------------
     $zlibSrc = Expand-Source (Join-Path $Work "zlib-$ZlibVersion.tar.gz") "zlib-$ZlibVersion"
     Build-CMake $zlibSrc (Join-Path $Work "build-zlib") @(
-        "-DCMAKE_INSTALL_PREFIX=$Deps",
+        "-DCMAKE_INSTALL_PREFIX=$DepsFwd",
         "-DBUILD_SHARED_LIBS=ON",
         "-DZLIB_BUILD_SHARED=ON",
         "-DZLIB_BUILD_STATIC=ON"
@@ -131,7 +144,7 @@ function Install-Dependencies {
     # Expat (needed by APR-util) ----------------------------------------
     Expand-Source (Join-Path $Work "expat-$ExpatVersion.tar.gz") "expat-$ExpatVersion" | Out-Null
     Build-CMake (Get-ExpatSource) (Join-Path $Work "build-expat") @(
-        "-DCMAKE_INSTALL_PREFIX=$Deps",
+        "-DCMAKE_INSTALL_PREFIX=$DepsFwd",
         "-DBUILD_SHARED_LIBS=ON",
         "-DEXPAT_BUILD_TOOLS=OFF",
         "-DEXPAT_BUILD_EXAMPLES=OFF",
@@ -143,7 +156,7 @@ function Install-Dependencies {
     # support) ----------------------------------------------------------
     $pcre2Src = Expand-Source (Join-Path $Work "pcre2-$Pcre2Version.tar.gz") "pcre2-$Pcre2Version"
     Build-CMake $pcre2Src (Join-Path $Work "build-pcre2") @(
-        "-DCMAKE_INSTALL_PREFIX=$Deps",
+        "-DCMAKE_INSTALL_PREFIX=$DepsFwd",
         "-DBUILD_SHARED_LIBS=ON",
         "-DPCRE2_BUILD_PCRE2_8=ON",
         "-DPCRE2_SUPPORT_UNICODE=ON",
@@ -154,7 +167,7 @@ function Install-Dependencies {
     # nghttp2 (mod_http2) ----------------------------------------------
     $nghttp2Src = Expand-Source (Join-Path $Work "nghttp2-$Nghttp2Version.tar.gz") "nghttp2-$Nghttp2Version"
     Build-CMake $nghttp2Src (Join-Path $Work "build-nghttp2") @(
-        "-DCMAKE_INSTALL_PREFIX=$Deps",
+        "-DCMAKE_INSTALL_PREFIX=$DepsFwd",
         "-DENABLE_LIB_ONLY=ON",
         "-DENABLE_SHARED_LIB=ON",
         "-DENABLE_STATIC_LIB=OFF",
@@ -184,19 +197,19 @@ function Install-Dependencies {
     # APR / APR-util ----------------------------------------------------
     $aprSrc = Expand-Source (Join-Path $Work "apr-$AprVersion.tar.gz") "apr-$AprVersion"
     Build-CMake $aprSrc (Join-Path $Work "build-apr") @(
-        "-DCMAKE_INSTALL_PREFIX=$Deps",
+        "-DCMAKE_INSTALL_PREFIX=$DepsFwd",
         "-DAPR_INSTALL_PRIVATE_H=ON",
         "-DAPR_BUILD_TESTAPR=OFF"
     ) "APR"
 
     $aprUtilSrc = Expand-Source (Join-Path $Work "apr-util-$AprUtilVersion.tar.gz") "apr-util-$AprUtilVersion"
     Build-CMake $aprUtilSrc (Join-Path $Work "build-apr-util") @(
-        "-DCMAKE_INSTALL_PREFIX=$Deps",
+        "-DCMAKE_INSTALL_PREFIX=$DepsFwd",
         $vcpkgHint,
-        "-DAPR_INCLUDE_DIR=$Deps\include",
-        "-DAPR_LIBRARIES=$Deps\lib\libapr-1.lib",
-        "-DEXPAT_INCLUDE_DIR=$Deps\include",
-        "-DEXPAT_LIBRARY=$Deps\lib\expat.lib",
+        "-DAPR_INCLUDE_DIR=$DepsFwd/include",
+        "-DAPR_LIBRARIES=$DepsFwd/lib/libapr-1.lib",
+        "-DEXPAT_INCLUDE_DIR=$DepsFwd/include",
+        "-DEXPAT_LIBRARY=$DepsFwd/lib/libexpat.lib",
         "-DAPU_HAVE_ODBC=OFF",
         "-DAPR_HAS_LDAP=OFF"
     ) "APR-util"
@@ -211,30 +224,30 @@ function Build-Httpd {
         Remove-Item -Recurse -Force $buildDir
     }
 
-    $aprLibs = "$Deps\lib\libapr-1.lib;$Deps\lib\libaprutil-1.lib"
+    $aprLibs = "$DepsFwd/lib/libapr-1.lib;$DepsFwd/lib/libaprutil-1.lib"
     $cmakeArgs = @(
         "-S", $src,
         "-B", $buildDir,
         "-G", "NMake Makefiles",
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DCMAKE_INSTALL_PREFIX=$StageRoot",
-        "-DCMAKE_PREFIX_PATH=$Deps",
-        "-DAPR_INCLUDE_DIR=$Deps\include",
+        "-DCMAKE_INSTALL_PREFIX=$StageFwd",
+        "-DCMAKE_PREFIX_PATH=$DepsFwd",
+        "-DAPR_INCLUDE_DIR=$DepsFwd/include",
         "-DAPR_LIBRARIES=$aprLibs",
-        "-DOPENSSL_ROOT_DIR=$Deps",
+        "-DOPENSSL_ROOT_DIR=$DepsFwd",
         "-DOPENSSL_USE_STATIC_LIBS=OFF",
-        "-DOPENSSL_INCLUDE_DIR=$Deps\include",
-        "-DOPENSSL_SSL_LIBRARY=$Deps\lib\libssl.lib",
-        "-DOPENSSL_CRYPTO_LIBRARY=$Deps\lib\libcrypto.lib",
-        "-DZLIB_ROOT=$Deps",
-        "-DZLIB_INCLUDE_DIR=$Deps\include",
-        "-DZLIB_LIBRARY=$Deps\lib\zlib.lib",
-        "-DPCRE2_INCLUDE_DIR=$Deps\include",
-        "-DPCRE2_LIBRARY=$Deps\lib\pcre2-8.lib",
-        "-DPCRE2_8BIT_LIBRARY=$Deps\lib\pcre2-8.lib",
-        "-DPCRE2_DIR=$Deps\lib\cmake\pcre2",
-        "-DNGHTTP2_INCLUDE_DIR=$Deps\include",
-        "-DNGHTTP2_LIBRARIES=$Deps\lib\nghttp2.lib",
+        "-DOPENSSL_INCLUDE_DIR=$DepsFwd/include",
+        "-DOPENSSL_SSL_LIBRARY=$DepsFwd/lib/libssl.lib",
+        "-DOPENSSL_CRYPTO_LIBRARY=$DepsFwd/lib/libcrypto.lib",
+        "-DZLIB_ROOT=$DepsFwd",
+        "-DZLIB_INCLUDE_DIR=$DepsFwd/include",
+        "-DZLIB_LIBRARY=$DepsFwd/lib/zlib.lib",
+        "-DPCRE2_INCLUDE_DIR=$DepsFwd/include",
+        "-DPCRE2_LIBRARY=$DepsFwd/lib/pcre2-8.lib",
+        "-DPCRE2_8BIT_LIBRARY=$DepsFwd/lib/pcre2-8.lib",
+        "-DPCRE2_DIR=$DepsFwd/lib/cmake/pcre2",
+        "-DNGHTTP2_INCLUDE_DIR=$DepsFwd/include",
+        "-DNGHTTP2_LIBRARIES=$DepsFwd/lib/nghttp2.lib",
         "-DENABLE_MODULES=a",
         "-DENABLE_SSL=A",
         "-DENABLE_HTTP2=A",
@@ -347,7 +360,15 @@ function New-Package {
 function Test-Package {
     Write-Step "verify $InstallDir"
 
-    $tmp = Join-Path ([IO.Path]::GetTempPath()) ("httpd-verify-" + [guid]::NewGuid().ToString("N"))
+    $tempBase = [IO.Path]::GetTempPath()
+    if ($tempBase -match ' ') {
+        # Apache's winnt MPM cannot propagate a ServerRoot containing spaces
+        # to its child process; use a space-free directory for the smoke test.
+        if ($env:PUBLIC) {
+            $tempBase = $env:PUBLIC
+        }
+    }
+    $tmp = Join-Path $tempBase ("httpd-verify-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $tmp | Out-Null
     try {
         Expand-Archive -LiteralPath $Zip -DestinationPath $tmp -Force
@@ -427,6 +448,10 @@ function Test-Package {
 if (-not $env:VCToolsInstallDir -and -not $env:VCINSTALLDIR) {
     throw "run this script from a Visual Studio developer environment (VCToolsInstallDir/VCINSTALLDIR is not set)"
 }
+
+# Some sources (Expat) contain UTF-8 punctuation in comments; without /utf-8
+# MSVC on a non-English code page misparses the following preprocessor lines.
+$env:CL = if ($env:CL) { "$env:CL /utf-8" } else { "/utf-8" }
 
 New-Item -ItemType Directory -Force -Path $Work, $Deps, $Stage | Out-Null
 if (Test-Path $Stage) {

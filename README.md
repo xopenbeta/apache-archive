@@ -137,4 +137,5 @@ Get-Content httpd-2.4.69-windows-x86_64.zip.sha256
 - macOS / Linux 产物为静态模块构建，不支持通过 `LoadModule` 加载第三方 DSO 模块；需要 PHP 时建议使用 `mod_proxy_fcgi` + PHP-FPM。
 - 不启用 `mod_md`、`mod_lua`、`mod_brotli`、`mod_ldap` 等需要额外依赖的模块。
 - Windows 产物使用 DSO 模块，`mod_dav` 等模块是否包含取决于 Expat/APR-util 的构建结果；可通过 `bin\apachectl.cmd -M` 查看。
+- Windows 版请解压到**不含空格**的路径：Apache 的 `mpm_winnt` 在向子进程传递 `ServerRoot` 时不会重新加引号，带空格的路径会导致启动失败。
 - 默认端口为 8080；如需 80 端口，请修改 `conf/httpd.conf` 并以具备绑定权限的用户启动。
