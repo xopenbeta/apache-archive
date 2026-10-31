@@ -245,6 +245,8 @@ build_apr_util() {
                 --with-apr="$DEPS/bin/apr-1-config" \
                 --with-expat="$DEPS" \
                 --disable-shared --enable-static \
+                --without-ldap \
+                --without-sqlite3 --without-mysql --without-pgsql --without-oracle --without-odbc \
                 --without-gdbm --without-ndbm --without-berkeley-db
         make -j"$JOBS"
         make install
@@ -359,7 +361,15 @@ if [ ! -x "$HTTPD" ]; then
     echo "apachectl: cannot find $HTTPD" >&2
     exit 1
 fi
-exec "$HTTPD" -d "$ROOT" -C "Define SRVROOT \"$ROOT\"" -f "$ROOT/conf/httpd.conf" "$@"
+if [ "$(id -u)" -eq 0 ]; then
+    exec "$HTTPD" -d "$ROOT" -C "Define SRVROOT \"$ROOT\"" -f "$ROOT/conf/httpd.conf" "$@"
+else
+    # The stock configuration runs as "daemon", which cannot traverse a
+    # package extracted into a private home directory. When started as a
+    # normal user, keep the server under that user instead.
+    exec "$HTTPD" -d "$ROOT" -C "Define SRVROOT \"$ROOT\"" -f "$ROOT/conf/httpd.conf" \
+        -c "User #$(id -u)" -c "Group #$(id -g)" "$@"
+fi
 LAUNCHER
     chmod 755 "$PKG_ROOT/bin/apachectl"
 }
@@ -417,7 +427,7 @@ verify() {
 
     ok=0
     for i in $(seq 1 30); do
-        if curl -fsS --max-time 2 "http://127.0.0.1:${HTTPD_PORT}/" -o "$tmp/index.html" 2>/dev/null; then
+        if curl -fsS --noproxy '*' --max-time 2 "http://127.0.0.1:${HTTPD_PORT}/" -o "$tmp/index.html" 2>/dev/null; then
             ok=1
             break
         fi
@@ -427,9 +437,11 @@ verify() {
     "$pkg/bin/apachectl" -k stop >/dev/null 2>&1 || true
 
     if [ "$ok" -ne 1 ]; then
-        if [ -f "$pkg/logs/error.log" ]; then
-            tail -n 40 "$pkg/logs/error.log" >&2 || true
-        fi
+        for i in "$pkg/logs/error_log" "$pkg/logs/error.log"; do
+            if [ -f "$i" ]; then
+                tail -n 40 "$i" >&2 || true
+            fi
+        done
         rm -rf "$tmp"
         die "httpd did not answer on port ${HTTPD_PORT}"
     fi

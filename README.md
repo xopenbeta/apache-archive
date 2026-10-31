@@ -51,7 +51,7 @@ git push origin v202610312330
 - **MPM**: `event`
 - **模块**: `most` + `ssl` + `http2` + `proxy_http2`
 - **默认端口**: HTTP `8080`（非 root 可直接启动），HTTPS 配置中的默认端口为 `443`
-- **macOS / Linux**: 所有依赖源码编译、静态链接，产物不依赖 Homebrew 或发行版软件包；模块全部编译进 `bin/httpd`，不支持第三方 DSO 模块
+- **macOS / Linux**: 所有依赖源码编译、静态链接；OpenSSL、PCRE2、APR、APR-util、zlib、Expat、nghttp2 均已内联，产物只依赖系统 libc（Linux 上另有 `libuuid`、`libcrypt`），不依赖 Homebrew 或发行版的开发包。模块全部编译进 `bin/httpd`，不支持第三方 DSO 模块
 - **Windows**: 采用 MSVC + CMake 构建，模块为 `modules/*.so`，依赖 DLL 与 VC 运行时随包放入 `bin/`
 - **打包格式**: macOS / Linux 为 `.tar.gz`，Windows 为 `.zip`
 
@@ -132,6 +132,7 @@ Get-Content httpd-2.4.69-windows-x86_64.zip.sha256
 
 ## 已知限制
 
+- 非 root 启动时，`apachectl` 会用 `-c` 把 `User`/`Group` 覆盖为当前用户，因此解压到自己的 home 目录也能直接运行；以 root 启动时沿用 `conf/httpd.conf` 中的 `daemon` 用户，请把包解压到 `daemon` 可遍历的路径（如 `/opt`），或修改该文件中的 `User`/`Group`。
 - macOS / Linux 产物为静态模块构建，不支持通过 `LoadModule` 加载第三方 DSO 模块；需要 PHP 时建议使用 `mod_proxy_fcgi` + PHP-FPM。
 - 不启用 `mod_md`、`mod_lua`、`mod_brotli`、`mod_ldap` 等需要额外依赖的模块。
 - Windows 产物使用 DSO 模块，`mod_dav` 等模块是否包含取决于 Expat/APR-util 的构建结果；可通过 `bin\apachectl.cmd -M` 查看。
