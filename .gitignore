@@ -1,0 +1,25 @@
+# Build workspace
+/work/
+/deps/
+/stage/
+/build/
+/verify/
+
+# Extracted source trees (created by scripts/build-*.sh|ps1)
+/httpd-*/
+/apr-*/
+/apr-util-*/
+/apr-iconv-*/
+/pcre2-*/
+/openssl-*/
+/nghttp2-*/
+/zlib-*/
+/expat-*/
+
+# Packaged release artifacts
+*.tar.gz
+*.zip
+*.sha256
+
+# Local logs
+/error*.log
