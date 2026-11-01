@@ -104,11 +104,13 @@ untar() {
 configure_platform() {
     if [ "$PLATFORM" = "macos" ]; then
         export MACOSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET"
+        SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+        export SDKROOT
         CC="$(xcrun --find clang)"
         CXX="$(xcrun --find clang++)"
         export CC CXX
-        CFLAGS="-O2 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET} -arch ${ARCH}"
-        LDFLAGS="-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET} -arch ${ARCH}"
+        CFLAGS="-O2 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET} -arch ${ARCH} -isysroot ${SDKROOT}"
+        LDFLAGS="-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET} -arch ${ARCH} -isysroot ${SDKROOT}"
         OPENSSL_TARGET="darwin64-${ARCH}-cc"
         # The darwin64 target already supplies -arch; passing it separately
         # makes Configure treat the arch name as a second target.
