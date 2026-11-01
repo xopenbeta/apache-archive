@@ -104,6 +104,9 @@ untar() {
 configure_platform() {
     if [ "$PLATFORM" = "macos" ]; then
         export MACOSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET"
+        CC="$(xcrun --find clang)"
+        CXX="$(xcrun --find clang++)"
+        export CC CXX
         CFLAGS="-O2 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET} -arch ${ARCH}"
         LDFLAGS="-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET} -arch ${ARCH}"
         OPENSSL_TARGET="darwin64-${ARCH}-cc"
@@ -278,6 +281,12 @@ build_httpd() {
                 --enable-ssl=static \
                 --enable-http2=static \
                 --enable-proxy-http2=static \
+                --disable-brotli \
+                --disable-lua \
+                --disable-ldap \
+                --disable-md \
+                --disable-proxy-html \
+                --disable-xml2enc \
                 --with-mpm=event \
                 --with-port="$HTTPD_PORT"
 
